@@ -1,1 +1,22 @@
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
 
+# Archivos temporales
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Archivos de registro
+*.log
+
+# Configuración local de editores
+.idea/
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example

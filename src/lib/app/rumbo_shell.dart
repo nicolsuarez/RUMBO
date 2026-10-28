@@ -1,4 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../features/auth/domain/entities/rumbo_user.dart';
+import '../features/auth/domain/usecases/auth_usecases.dart';
+import '../features/auth/data/datasources/supabase_auth_data_source.dart';
+import '../features/auth/data/repositories/supabase_auth_repository.dart';
 
 import 'models/root_tab.dart';
 
@@ -14,7 +21,8 @@ import '../features/plans/presentation/screens/my_plans_screen.dart';
 import '../features/plans/presentation/screens/plan_detail_screen.dart';
 import '../features/profile/presentation/models/user_role.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
-import '../features/profile/presentation/screens/role_screen.dart';
+import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/routes/presentation/screens/route_simulation_screen.dart';
 
 class RumboShell extends StatefulWidget {
@@ -25,9 +33,18 @@ class RumboShell extends StatefulWidget {
 }
 
 class _RumboShellState extends State<RumboShell> {
+  late final SupabaseAuthRepository _auth;
+  StreamSubscription<void>? _authListener;
+  RumboUser? _user;
+  bool _loadingProfile = false;
+  String? _profileError;
+
   // Estado temporal del prototipo.
-  bool entered = false;
-  UserRole? selectedRole;
+  // Hasta integrar Supabase, no se concede ninguna sesión real.
+  // Vista previa de las pantallas internas: solo se habilitará para desarrollo.
+  _EntryPage entryPage = _EntryPage.welcome;
+  UserRole selectedRole = UserRole.participante;
+  bool organizerAuthorizedPreview = false;
 
   RootTab tab = RootTab.inicio;
 
@@ -41,10 +58,39 @@ class _RumboShellState extends State<RumboShell> {
   @override
   void initState() {
     super.initState();
+    _auth = SupabaseAuthRepository(SupabaseAuthDataSource(Supabase.instance.client));
+    _authListener = _auth.sessionChanges.listen((_) => _refreshSession());
+    _refreshSession();
 
     // Crear copias de los planes originales.
     plans = initialPlans.map(_copyPlan).toList();
   }
+
+  Future<void> _refreshSession() async {
+    if (!_auth.hasSession) {
+      if (mounted) setState(() { _user = null; _profileError = null;
+        if (entryPage == _EntryPage.authenticated) entryPage = _EntryPage.login; });
+      return;
+    }
+    if (mounted) setState(() { _loadingProfile = true; _profileError = null; });
+    try {
+      final profile = await GetCurrentProfileUseCase(_auth)();
+      if (!mounted) return;
+      setState(() {
+        _user = profile;
+        organizerAuthorizedPreview = profile?.isOrganizer ?? false;
+        selectedRole = profile?.isOrganizer == true ? UserRole.organizador : UserRole.participante;
+        entryPage = _EntryPage.authenticated;
+        tab = RootTab.perfil;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _profileError = 'No se pudo cargar tu perfil: $e');
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
+
+  @override void dispose() { _authListener?.cancel(); super.dispose(); }
 
   Plan _copyPlan(Plan p) {
     return Plan(
@@ -87,21 +133,29 @@ class _RumboShellState extends State<RumboShell> {
     });
   }
 
-  void chooseRole(UserRole role) {
-    setState(() {
-      selectedRole = role;
-      tab = RootTab.inicio;
-    });
-  }
-
-  void toggleRole() {
+  void toggleViewMode() {
+    if (!organizerAuthorizedPreview) return;
     setState(() {
       selectedRole = selectedRole == UserRole.organizador
           ? UserRole.participante
           : UserRole.organizador;
-
       tab = RootTab.inicio;
     });
+  }
+
+  void showOrganizerRequest() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Quiero ser organizador'),
+        content: const Text(
+          'Formulario simulado. En una versión futura podrás enviar '
+          'tu experiencia y solicitar autorización. '
+          'Esta acción no cambia tu rol ni concede permisos.'
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+      ),
+    );
   }
 
   // Inscripciones simuladas.
@@ -136,7 +190,7 @@ class _RumboShellState extends State<RumboShell> {
 
   // Creación temporal de planes.
   void addPlan(Plan plan) {
-    if (selectedRole != UserRole.organizador) {
+    if (_user == null || !_user!.isOrganizer || selectedRole != UserRole.organizador) {
       return;
     }
 
@@ -202,23 +256,59 @@ class _RumboShellState extends State<RumboShell> {
 
   @override
   Widget build(BuildContext context) {
-    // Pantalla introductoria.
-    if (!entered) {
+    if (_loadingProfile) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_profileError != null) return Scaffold(body: Center(child: Column(
+      mainAxisSize: MainAxisSize.min, children: [Text(_profileError!),
+      FilledButton(onPressed: _refreshSession,child: const Text('Reintentar'))])));
+    // El acceso a la aplicación requiere sesión válida, excepto preview debug.
+    if (entryPage == _EntryPage.welcome) {
       return SplashScreen(
-        onEnter: () {
+        onRegister: () => setState(() => entryPage = _EntryPage.register),
+        onLogin: () => setState(() => entryPage = _EntryPage.login),
+        onPreview: () {
+          if (!kDebugMode) return;
           setState(() {
-            entered = true;
+            entryPage = _EntryPage.preview;
+            organizerAuthorizedPreview = false;
+            selectedRole = UserRole.participante;
           });
         },
       );
     }
-
-    // Selección inicial del rol.
-    if (selectedRole == null) {
-      return RoleScreen(onChoose: chooseRole);
+    if (entryPage == _EntryPage.login) {
+      return LoginScreen(
+        signIn: SignInUseCase(_auth),
+        onRegister: () => setState(() => entryPage = _EntryPage.register),
+      );
+    }
+    if (entryPage == _EntryPage.register) {
+      return RegisterScreen(
+        signUp: SignUpUseCase(_auth),
+        onLogin: () => setState(() => entryPage = _EntryPage.login),
+      );
     }
 
+    if (entryPage != _EntryPage.preview && _user == null) {
+      return const Scaffold(body: Center(child: Text('Inicia sesión para continuar.')));
+    }
     return Scaffold(
+      appBar: kDebugMode && entryPage == _EntryPage.preview
+          ? AppBar(
+              title: const Text('Vista previa (sin autenticación)'),
+              actions: [
+                TextButton(
+                  onPressed: () => setState(() {
+                    organizerAuthorizedPreview = !organizerAuthorizedPreview;
+                    selectedRole = organizerAuthorizedPreview
+                        ? UserRole.organizador : UserRole.participante;
+                    tab = RootTab.inicio;
+                  }),
+                  child: Text(organizerAuthorizedPreview
+                      ? 'Restablecer participante' : 'Cuenta organizadora de prueba'),
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: IndexedStack(
           index: tab.index,
@@ -264,7 +354,14 @@ class _RumboShellState extends State<RumboShell> {
             ),
 
             // 4 - Perfil
-            ProfileScreen(role: selectedRole!, onToggleRole: toggleRole),
+            ProfileScreen(
+              role: selectedRole,
+              isOrganizerAuthorized: organizerAuthorizedPreview,
+              onToggleRole: toggleViewMode,
+              onRequestOrganizer: showOrganizerRequest,
+              user: _user,
+              onSignOut: _user == null ? null : () async { await _auth.signOut(); },
+            ),
           ],
         ),
       ),
@@ -312,3 +409,6 @@ class _RumboShellState extends State<RumboShell> {
     );
   }
 }
+
+// preview se reserva para el futuro enlace de Supabase; no hay login simulado.
+enum _EntryPage { welcome, register, login, preview, authenticated }

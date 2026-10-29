@@ -12,12 +12,14 @@ class HomeScreen extends StatefulWidget {
   final List<Plan> plans;
   final ValueChanged<Plan> onOpen;
   final VoidCallback onExplore;
+  final String userName;
 
   const HomeScreen({
     super.key,
     required this.plans,
     required this.onOpen,
     required this.onExplore,
+    required this.userName,
   });
 
   @override
@@ -36,10 +38,18 @@ class _HomeScreenState extends State<HomeScreen> {
           );
     }).toList();
 
+    final nameParts = widget.userName.trim().split(RegExp(r'\s+'));
+
+    final initials = nameParts
+        .where((part) => part.isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 110),
       children: [
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Column(
@@ -54,16 +64,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Hola, Ines',
-                  style: TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+                  'Hola, ${widget.userName}',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ],
             ),
             CircleAvatar(
               backgroundColor: RumboColors.rosado,
               child: Text(
-                'IN',
-                style: TextStyle(
+                initials,
+                style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),

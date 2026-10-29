@@ -1,11 +1,11 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'dart:async';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/auth/domain/entities/rumbo_user.dart';
 import '../features/auth/domain/usecases/auth_usecases.dart';
-import '../features/auth/data/datasources/supabase_auth_data_source.dart';
-import '../features/auth/data/repositories/supabase_auth_repository.dart';
+import '../features/auth/presentation/bloc/login/login_bloc.dart';
+import '../features/auth/presentation/bloc/register/register_bloc.dart';
+import '../features/auth/domain/repositories/auth_repository.dart';
+import '../features/auth/presentation/bloc/auth/auth_bloc.dart';
 
 import 'models/root_tab.dart';
 
@@ -21,30 +21,33 @@ import '../features/plans/presentation/screens/my_plans_screen.dart';
 import '../features/plans/presentation/screens/plan_detail_screen.dart';
 import '../features/profile/presentation/models/user_role.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
+import '../features/profile/presentation/screens/profile_summary_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/routes/presentation/screens/route_simulation_screen.dart';
+import '../features/auth/domain/usecases/check_username_availability_usecase.dart';
 
 class RumboShell extends StatefulWidget {
-  const RumboShell({super.key});
+  const RumboShell({super.key, required this.authRepository});
+
+  final AuthRepository authRepository;
 
   @override
   State<RumboShell> createState() => _RumboShellState();
 }
 
 class _RumboShellState extends State<RumboShell> {
-  late final SupabaseAuthRepository _auth;
-  StreamSubscription<void>? _authListener;
-  RumboUser? _user;
-  bool _loadingProfile = false;
-  String? _profileError;
+  // El estado de sesión se consulta desde AuthBloc, no desde Supabase.
+  RumboUser? get _user {
+    final state = context.read<AuthBloc>().state;
+    return state is AuthAuthenticated ? state.user : null;
+  }
 
-  // Estado temporal del prototipo.
-  // Hasta integrar Supabase, no se concede ninguna sesión real.
-  // Vista previa de las pantallas internas: solo se habilitará para desarrollo.
+  // Estado visual de navegación; los permisos reales vienen de AuthBloc.
   _EntryPage entryPage = _EntryPage.welcome;
   UserRole selectedRole = UserRole.participante;
-  bool organizerAuthorizedPreview = false;
+  String? _lastAuthenticatedUserId;
+  bool _registrationInProgress = false;
 
   RootTab tab = RootTab.inicio;
 
@@ -58,39 +61,36 @@ class _RumboShellState extends State<RumboShell> {
   @override
   void initState() {
     super.initState();
-    _auth = SupabaseAuthRepository(SupabaseAuthDataSource(Supabase.instance.client));
-    _authListener = _auth.sessionChanges.listen((_) => _refreshSession());
-    _refreshSession();
-
     // Crear copias de los planes originales.
     plans = initialPlans.map(_copyPlan).toList();
   }
 
-  Future<void> _refreshSession() async {
-    if (!_auth.hasSession) {
-      if (mounted) setState(() { _user = null; _profileError = null;
-        if (entryPage == _EntryPage.authenticated) entryPage = _EntryPage.login; });
-      return;
-    }
-    if (mounted) setState(() { _loadingProfile = true; _profileError = null; });
-    try {
-      final profile = await GetCurrentProfileUseCase(_auth)();
-      if (!mounted) return;
+  void _onAuthStateChanged(BuildContext context, AuthState state) {
+    if (state is AuthAuthenticated) {
+      if (_lastAuthenticatedUserId == state.user.id) return;
+      _lastAuthenticatedUserId = state.user.id;
       setState(() {
-        _user = profile;
-        organizerAuthorizedPreview = profile?.isOrganizer ?? false;
-        selectedRole = profile?.isOrganizer == true ? UserRole.organizador : UserRole.participante;
-        entryPage = _EntryPage.authenticated;
-        tab = RootTab.perfil;
+        selectedRole = state.user.isOrganizer
+            ? UserRole.organizador
+            : UserRole.participante;
+        entryPage = _registrationInProgress
+            ? _EntryPage.registrationSummary
+            : _EntryPage.authenticated;
+        tab = RootTab.inicio;
       });
-    } catch (e) {
-      if (mounted) setState(() => _profileError = 'No se pudo cargar tu perfil: $e');
-    } finally {
-      if (mounted) setState(() => _loadingProfile = false);
+    } else if (state is AuthUnauthenticated) {
+      _lastAuthenticatedUserId = null;
+      setState(() {
+        selectedRole = UserRole.participante;
+        _registrationInProgress = false;
+        // Se conserva el formulario de registro si el usuario estaba registrándose.
+        if (entryPage == _EntryPage.authenticated ||
+            entryPage == _EntryPage.registrationSummary) {
+          entryPage = _EntryPage.login;
+        }
+      });
     }
   }
-
-  @override void dispose() { _authListener?.cancel(); super.dispose(); }
 
   Plan _copyPlan(Plan p) {
     return Plan(
@@ -134,7 +134,7 @@ class _RumboShellState extends State<RumboShell> {
   }
 
   void toggleViewMode() {
-    if (!organizerAuthorizedPreview) return;
+    if (_user?.isOrganizer != true) return;
     setState(() {
       selectedRole = selectedRole == UserRole.organizador
           ? UserRole.participante
@@ -151,9 +151,14 @@ class _RumboShellState extends State<RumboShell> {
         content: const Text(
           'Formulario simulado. En una versión futura podrás enviar '
           'tu experiencia y solicitar autorización. '
-          'Esta acción no cambia tu rol ni concede permisos.'
+          'Esta acción no cambia tu rol ni concede permisos.',
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Entendido'))],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Entendido'),
+          ),
+        ],
       ),
     );
   }
@@ -190,7 +195,9 @@ class _RumboShellState extends State<RumboShell> {
 
   // Creación temporal de planes.
   void addPlan(Plan plan) {
-    if (_user == null || !_user!.isOrganizer || selectedRole != UserRole.organizador) {
+    if (_user == null ||
+        !_user!.isOrganizer ||
+        selectedRole != UserRole.organizador) {
       return;
     }
 
@@ -256,59 +263,93 @@ class _RumboShellState extends State<RumboShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loadingProfile) return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    if (_profileError != null) return Scaffold(body: Center(child: Column(
-      mainAxisSize: MainAxisSize.min, children: [Text(_profileError!),
-      FilledButton(onPressed: _refreshSession,child: const Text('Reintentar'))])));
-    // El acceso a la aplicación requiere sesión válida, excepto preview debug.
-    if (entryPage == _EntryPage.welcome) {
+    return BlocConsumer<AuthBloc, AuthState>(
+      listener: _onAuthStateChanged,
+      builder: (context, authState) => _buildForAuthState(authState),
+    );
+  }
+
+  Widget _buildForAuthState(AuthState authState) {
+    if (authState is AuthInitial || authState is AuthLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (authState is AuthFailure) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(authState.message),
+              FilledButton(
+                onPressed: () =>
+                    context.read<AuthBloc>().add(const AuthRetryRequested()),
+                child: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final isAuthenticated = authState is AuthAuthenticated;
+    // El acceso a la aplicación requiere sesión válida.
+    if (!isAuthenticated && entryPage == _EntryPage.welcome) {
       return SplashScreen(
         onRegister: () => setState(() => entryPage = _EntryPage.register),
         onLogin: () => setState(() => entryPage = _EntryPage.login),
-        onPreview: () {
-          if (!kDebugMode) return;
-          setState(() {
-            entryPage = _EntryPage.preview;
-            organizerAuthorizedPreview = false;
-            selectedRole = UserRole.participante;
-          });
-        },
       );
     }
-    if (entryPage == _EntryPage.login) {
-      return LoginScreen(
-        signIn: SignInUseCase(_auth),
-        onRegister: () => setState(() => entryPage = _EntryPage.register),
+    if (!isAuthenticated && entryPage == _EntryPage.login) {
+      return BlocProvider<LoginBloc>(
+        create: (_) => LoginBloc(signIn: SignInUseCase(widget.authRepository)),
+        child: LoginScreen(
+          onRegister: () => setState(() => entryPage = _EntryPage.register),
+          onBack: () => setState(() => entryPage = _EntryPage.welcome),
+        ),
       );
     }
-    if (entryPage == _EntryPage.register) {
-      return RegisterScreen(
-        signUp: SignUpUseCase(_auth),
-        onLogin: () => setState(() => entryPage = _EntryPage.login),
+    if (!isAuthenticated && entryPage == _EntryPage.register) {
+      return BlocProvider<RegisterBloc>(
+        create: (_) => RegisterBloc(
+          signUp: SignUpUseCase(widget.authRepository),
+          checkUsername: CheckUsernameAvailabilityUseCase(
+            widget.authRepository,
+          ),
+        ),
+        child: RegisterScreen(
+          onLogin: () => setState(() {
+            _registrationInProgress = false;
+            entryPage = _EntryPage.login;
+          }),
+          onBack: () => setState(() {
+            _registrationInProgress = false;
+            entryPage = _EntryPage.welcome;
+          }),
+          onRegistrationStarted: () {
+            _registrationInProgress = true;
+          },
+          onRegistrationFailed: () {
+            _registrationInProgress = false;
+          },
+        ),
+      );
+    }
+    if (!isAuthenticated) {
+      return const Scaffold(
+        body: Center(child: Text('Inicia sesión para continuar.')),
+      );
+    }
+    if (entryPage == _EntryPage.registrationSummary) {
+      return ProfileSummaryScreen(
+        user: authState.user,
+        onContinue: () => setState(() {
+          _registrationInProgress = false;
+          entryPage = _EntryPage.authenticated;
+          tab = RootTab.inicio;
+        }),
       );
     }
 
-    if (entryPage != _EntryPage.preview && _user == null) {
-      return const Scaffold(body: Center(child: Text('Inicia sesión para continuar.')));
-    }
     return Scaffold(
-      appBar: kDebugMode && entryPage == _EntryPage.preview
-          ? AppBar(
-              title: const Text('Vista previa (sin autenticación)'),
-              actions: [
-                TextButton(
-                  onPressed: () => setState(() {
-                    organizerAuthorizedPreview = !organizerAuthorizedPreview;
-                    selectedRole = organizerAuthorizedPreview
-                        ? UserRole.organizador : UserRole.participante;
-                    tab = RootTab.inicio;
-                  }),
-                  child: Text(organizerAuthorizedPreview
-                      ? 'Restablecer participante' : 'Cuenta organizadora de prueba'),
-                ),
-              ],
-            )
-          : null,
       body: SafeArea(
         child: IndexedStack(
           index: tab.index,
@@ -324,6 +365,7 @@ class _RumboShellState extends State<RumboShell> {
                     },
                   )
                 : HomeScreen(
+                    userName: _user!.name,
                     plans: plans,
                     onOpen: openPlan,
                     onExplore: () {
@@ -356,11 +398,13 @@ class _RumboShellState extends State<RumboShell> {
             // 4 - Perfil
             ProfileScreen(
               role: selectedRole,
-              isOrganizerAuthorized: organizerAuthorizedPreview,
+              isOrganizerAuthorized: _user?.isOrganizer ?? false,
               onToggleRole: toggleViewMode,
               onRequestOrganizer: showOrganizerRequest,
               user: _user,
-              onSignOut: _user == null ? null : () async { await _auth.signOut(); },
+              onSignOut: () {
+                context.read<AuthBloc>().add(const AuthSignOutRequested());
+              },
             ),
           ],
         ),
@@ -410,5 +454,4 @@ class _RumboShellState extends State<RumboShell> {
   }
 }
 
-// preview se reserva para el futuro enlace de Supabase; no hay login simulado.
-enum _EntryPage { welcome, register, login, preview, authenticated }
+enum _EntryPage { welcome, register, login, registrationSummary, authenticated }

@@ -4,11 +4,10 @@ import '../../../../shared/theme/rumbo_colors.dart';
 import '../../../../shared/painters/mountain_painter.dart';
 
 class SplashScreen extends StatelessWidget {
-  final VoidCallback onEnter;
-  // se utiliza el mismo callback para ambos roles
-  // dado que aun no se implementa la autenticacion
+  final VoidCallback onRegister;
+  final VoidCallback onLogin;
 
-  const SplashScreen({super.key, required this.onEnter});
+  const SplashScreen({super.key, required this.onRegister, required this.onLogin});
 
   @override
   Widget build(BuildContext context) {
@@ -65,20 +64,20 @@ class SplashScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 28),
                   FilledButton(
-                    onPressed: onEnter,
+                    onPressed: onRegister,
                     style: FilledButton.styleFrom(
                       backgroundColor: RumboColors.guayacan,
                       foregroundColor: RumboColors.tinta,
                       minimumSize: const Size.fromHeight(54),
                     ),
                     child: const Text(
-                      'Entrar',
+                      'Crear cuenta',
                       style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                   const SizedBox(height: 10),
                   OutlinedButton(
-                    onPressed: onEnter,
+                    onPressed: onLogin,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
                       side: const BorderSide(color: Colors.white38),

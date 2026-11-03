@@ -5,15 +5,23 @@ import '../../../../shared/components/tag.dart';
 import '../../../../shared/theme/rumbo_colors.dart';
 
 import '../models/user_role.dart';
+import '../../../auth/domain/entities/rumbo_user.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserRole role;
   final VoidCallback onToggleRole;
+  final VoidCallback onRequestOrganizer;
+  final bool isOrganizerAuthorized;
+  final RumboUser? user;
+  final VoidCallback? onSignOut;
 
   const ProfileScreen({
     super.key,
     required this.role,
     required this.onToggleRole,
+    required this.onRequestOrganizer,
+    required this.isOrganizerAuthorized,
+    this.user, this.onSignOut,
   });
 
   @override
@@ -31,12 +39,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 110),
       children: [
         // Avatar del usuario.
-        const Center(
+        Center(
           child: CircleAvatar(
             radius: 42,
             backgroundColor: RumboColors.rosado,
             child: Text(
-              'IN',
+              widget.user == null ? 'IN' : widget.user!.name.trim().substring(0,1).toUpperCase(),
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
@@ -49,9 +57,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 10),
 
         // Nombre del usuario.
-        const Center(
+        Center(
           child: Text(
-            'Ines Martínez',
+            widget.user?.name ?? 'Vista previa',
             style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
           ),
         ),
@@ -70,8 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children:
-              [
+          children: (widget.user?.interests ?? [
                 'Senderismo',
                 'Amanecer',
                 'Ciclismo',
@@ -79,11 +86,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Camping',
                 'Fotografía',
                 'Río',
-              ].map((interest) {
+              ]).map((interest) {
                 return FilterChip(
                   label: Text(interest),
-                  selected: interests.contains(interest),
-                  onSelected: (selected) {
+                  selected: widget.user == null ? interests.contains(interest) : widget.user!.interests.contains(interest),
+                  onSelected: widget.user != null ? null : (selected) {
                     setState(() {
                       if (selected) {
                         interests.add(interest);
@@ -96,6 +103,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }).toList(),
         ),
 
+        if (widget.user != null) ...[
+          const SizedBox(height: 12),
+          Text('@${widget.user!.username} · ${widget.user!.email}'),
+          Text('Edad: ${widget.user!.age} años · Teléfono: ${widget.user!.phone}'),
+          const SizedBox(height: 12),
+          TextButton.icon(onPressed: widget.onSignOut, icon: const Icon(Icons.logout),label: const Text('Cerrar sesión')),
+        ],
         const SectionTitle('Tu modo actual'),
 
         Card(
@@ -118,14 +132,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 14),
 
-                OutlinedButton(
-                  onPressed: widget.onToggleRole,
-                  child: Text(
-                    org
-                        ? 'Cambiar a modo participante'
-                        : 'Cambiar a modo organizador',
+                if (widget.isOrganizerAuthorized)
+                  OutlinedButton(
+                    onPressed: widget.onToggleRole,
+                    child: Text(org ? 'Ver como participante' : 'Volver a vista organizador'),
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: widget.onRequestOrganizer,
+                    icon: const Icon(Icons.assignment_outlined),
+                    label: const Text('Quiero ser organizador'),
                   ),
-                ),
               ],
             ),
           ),

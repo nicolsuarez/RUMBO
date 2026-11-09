@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../shared/theme/rumbo_colors.dart';
 import '../../domain/entities/plan_entity.dart';
 
-/// Fondo visual para planes reales. Hasta integrar Supabase Storage,
-/// las rutas internas del bucket muestran el arte de reserva de RUMBO.
+/// Fondo visual para planes reales. El repositorio transforma el path
+/// interno del bucket en URL pública; este widget nunca consulta Supabase.
 class PlanArtwork extends StatelessWidget {
   const PlanArtwork({super.key, required this.plan});
 
@@ -12,8 +12,8 @@ class PlanArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imagePath = plan.imagePath?.trim();
-    final uri = imagePath == null ? null : Uri.tryParse(imagePath);
+    final imageUrl = plan.imageUrl?.trim();
+    final uri = imageUrl == null ? null : Uri.tryParse(imageUrl);
     final isRemoteImage =
         uri != null &&
         (uri.scheme == 'https' || uri.scheme == 'http') &&
@@ -21,7 +21,7 @@ class PlanArtwork extends StatelessWidget {
 
     if (isRemoteImage) {
       return Image.network(
-        imagePath!,
+        imageUrl!,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => const _FallbackArtwork(),
       );

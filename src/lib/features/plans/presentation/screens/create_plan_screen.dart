@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/components/app_field.dart';
 import '../../../../shared/theme/rumbo_colors.dart';
 import '../../domain/entities/plan_entity.dart';
+import '../../domain/entities/plan_image.dart';
 import '../../domain/entities/plan_input.dart';
 import '../bloc/plans_bloc.dart';
 
@@ -37,6 +39,10 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
   PlanDifficulty? difficulty;
   bool free = true;
   bool _submitted = false;
+  bool _pickingImage = false;
+  PlanImage? _newImage;
+  bool _removeImage = false;
+  final ImagePicker _picker = ImagePicker();
 
   bool get _isPublished => widget.initial?.status == PlanStatus.published;
   bool get _isReadOnly =>
@@ -72,6 +78,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
     mode = initial?.mode ?? PlanMode.public;
     difficulty = initial?.difficulty;
     free = initial?.budgetPerPerson == null || initial?.budgetPerPerson == 0;
+    _recoverLostImage();
   }
 
   @override
@@ -95,6 +102,160 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
+
+  /// Android puede cerrar la Activity durante el selector. Se recupera
+  /// el archivo si el sistema reinició Flutter en mitad de la selección.
+  Future<void> _recoverLostImage() async {
+    try {
+      final lost = await _picker.retrieveLostData();
+      if (!mounted || lost.isEmpty) return;
+      if (lost.exception != null) {
+        _showMessage('No se pudo recuperar la imagen anterior.');
+        return;
+      }
+      final files = lost.files;
+      if (files != null && files.isNotEmpty) {
+        await _usePickedImage(files.first);
+      }
+    } catch (_) {
+      // La recuperación no debe bloquear el formulario.
+    }
+  }
+
+  Future<void> _chooseImage() async {
+    if (_isReadOnly || _pickingImage) return;
+    setState(() => _pickingImage = true);
+    try {
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 80,
+        requestFullMetadata: false,
+      );
+      if (picked != null) await _usePickedImage(picked);
+    } catch (error) {
+      if (mounted) _showMessage('No se pudo seleccionar la imagen: $error');
+    } finally {
+      if (mounted) setState(() => _pickingImage = false);
+    }
+  }
+
+  Future<void> _usePickedImage(XFile picked) async {
+    try {
+      final bytes = await picked.readAsBytes();
+      final image = PlanImage.fromBytes(bytes);
+      if (!mounted) return;
+      setState(() {
+        _newImage = image;
+        _removeImage = false;
+      });
+    } on ArgumentError catch (error) {
+      if (mounted)
+        _showMessage(error.message?.toString() ?? 'Imagen inválida.');
+    } catch (error) {
+      if (mounted) _showMessage('No fue posible leer la imagen: $error');
+    }
+  }
+
+  void _clearImage() {
+    if (_isReadOnly) return;
+    setState(() {
+      _newImage = null;
+      _removeImage = true;
+    });
+  }
+
+  bool get _hasCurrentImage =>
+      _newImage != null || (!_removeImage && widget.initial?.imageUrl != null);
+
+  Widget _imagePreview({double height = 174}) {
+    final url = !_removeImage ? widget.initial?.imageUrl : null;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: double.infinity,
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (_newImage != null)
+              Image.memory(
+                _newImage!.bytes,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _imageFallback(),
+              )
+            else if (url != null && url.isNotEmpty)
+              Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _imageFallback(),
+              )
+            else
+              _imageFallback(),
+            if (!_hasCurrentImage)
+              const Center(
+                child: Icon(
+                  Icons.landscape_outlined,
+                  size: 45,
+                  color: RumboColors.guayacan,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _imageFallback() => const DecoratedBox(
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [RumboColors.monte, RumboColors.monte2],
+      ),
+    ),
+  );
+
+  Widget _imageField() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Foto del plan (opcional)',
+        style: TextStyle(fontWeight: FontWeight.w800),
+      ),
+      const SizedBox(height: 9),
+      _imagePreview(),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _isReadOnly || _pickingImage ? null : _chooseImage,
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: Text(
+              _pickingImage
+                  ? 'Abriendo galería…'
+                  : _hasCurrentImage
+                  ? 'Cambiar foto'
+                  : 'Elegir foto',
+            ),
+          ),
+          if (_hasCurrentImage)
+            TextButton.icon(
+              onPressed: _isReadOnly || _pickingImage ? null : _clearImage,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Quitar foto'),
+            ),
+        ],
+      ),
+      const Text(
+        'JPG, PNG o WebP · máximo 5 MB. Se subirá al guardar el plan.',
+        style: TextStyle(color: RumboColors.musgo, fontSize: 12),
+      ),
+    ],
+  );
 
   Future<void> _chooseStartDate() async {
     if (_isReadOnly) return;
@@ -171,6 +332,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           id: widget.initial?.id,
           input: input,
           publish: publish,
+          image: _newImage,
+          removeImage: _removeImage,
         ),
       );
     } on FormatException catch (e) {
@@ -206,6 +369,8 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
         mode = PlanMode.public;
         difficulty = null;
         free = true;
+        _newImage = null;
+        _removeImage = false;
       });
     }
     if (widget.onSaved != null) {
@@ -248,13 +413,19 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             if (step == 1) _details(state),
             if (step == 2) _review(state),
             const SizedBox(height: 18),
-            if (state.saving) const LinearProgressIndicator(),
+            if (state.saving) ...[
+              const LinearProgressIndicator(),
+              const SizedBox(height: 8),
+              const Text('Guardando plan y, si corresponde, su fotografía…'),
+            ],
             if (state.error != null && !state.saving)
               Text(state.error!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 12),
             if (step < 2)
               FilledButton(
-                onPressed: state.saving ? null : () => setState(() => step++),
+                onPressed: state.saving || _pickingImage || _isReadOnly
+                    ? null
+                    : () => setState(() => step++),
                 child: const Text('Continuar'),
               ),
             if (step == 2)
@@ -263,7 +434,7 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
                   backgroundColor: RumboColors.guayacan,
                   foregroundColor: RumboColors.tinta,
                 ),
-                onPressed: (state.saving || _isReadOnly)
+                onPressed: (state.saving || _pickingImage || _isReadOnly)
                     ? null
                     : () => _submit(publish: true),
                 child: Text(_isPublished ? 'Guardar cambios' : 'Publicar plan'),
@@ -271,7 +442,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
             if (_canSaveDraft) ...[
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                onPressed: state.saving ? null : () => _submit(publish: false),
+                onPressed: state.saving || _pickingImage
+                    ? null
+                    : () => _submit(publish: false),
                 icon: const Icon(Icons.save_outlined),
                 label: const Text('Guardar borrador'),
               ),
@@ -318,7 +491,9 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
               : _formatDate(startsAt!),
         ),
       ),
-      const SizedBox(height: 9),
+      const SizedBox(height: 18),
+      _imageField(),
+      const SizedBox(height: 12),
       const Text(
         'Para guardar un borrador solo necesitas nombre, descripción y lugar.',
         style: TextStyle(fontSize: 12, color: RumboColors.musgo),
@@ -531,24 +706,38 @@ class _CreatePlanScreenState extends State<CreatePlanScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 130,
-                padding: const EdgeInsets.all(18),
-                alignment: Alignment.bottomLeft,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [RumboColors.monte, RumboColors.monte2],
-                  ),
-                ),
-                child: Text(
-                  title.text.trim().isEmpty ? 'Sin título' : title.text.trim(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
+              SizedBox(
+                height: 150,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _imagePreview(height: 150),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Color(0xD91A2013)],
+                        ),
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Text(
+                          title.text.trim().isEmpty
+                              ? 'Sin título'
+                              : title.text.trim(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Padding(

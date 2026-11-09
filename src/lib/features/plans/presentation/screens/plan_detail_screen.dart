@@ -29,21 +29,21 @@ class PlanDetailScreen extends StatefulWidget {
     required bool Function() onJoinToggle,
     required VoidCallback onOpenChat,
     this.onStartRoute,
-  })  : _legacyPlan = plan,
-        _realPlan = null,
-        _onJoinToggle = onJoinToggle,
-        _onOpenChat = onOpenChat;
+  }) : _legacyPlan = plan,
+       _realPlan = null,
+       _onJoinToggle = onJoinToggle,
+       _onOpenChat = onOpenChat;
 
   const PlanDetailScreen.fromEntity({
     super.key,
     required PlanEntity plan,
     this.organizerOwnPlan = false,
-  })  : _realPlan = plan,
-        _legacyPlan = null,
-        joined = false,
-        _onJoinToggle = null,
-        _onOpenChat = null,
-        onStartRoute = null;
+  }) : _realPlan = plan,
+       _legacyPlan = null,
+       joined = false,
+       _onJoinToggle = null,
+       _onOpenChat = null,
+       onStartRoute = null;
 
   final Plan? _legacyPlan;
   final PlanEntity? _realPlan;
@@ -130,13 +130,13 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
     final distance = real == null
         ? legacy!.distancia
         : real.distanceKm == null
-            ? null
-            : '${_formatDistance(real.distanceKm!)} km';
+        ? null
+        : '${_formatDistance(real.distanceKm!)} km';
     final date = real == null ? legacy!.fecha : _formatDate(real.startsAt);
     final price = real == null
         ? legacy!.precio == 'Gratis'
-            ? 'Gratis'
-            : legacy!.precio
+              ? 'Gratis'
+              : legacy!.precio
         : _formatBudget(real.budgetPerPerson);
     final tags = real == null
         ? legacy!.tags
@@ -145,8 +145,7 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
             if (difficulty != null) difficulty,
             if (real.mode != null)
               real.mode == PlanMode.private ? 'Privado' : 'Público',
-            if (real.status != PlanStatus.published)
-              _statusLabel(real.status),
+            if (real.status != PlanStatus.published) _statusLabel(real.status),
           ];
 
     final metrics = <({String value, String label})>[
@@ -180,11 +179,12 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                       spacing: 7,
                       runSpacing: 7,
                       children: tags
-                          .map((value) => Tag(
-                                value,
-                                warn: value == 'Exigente' ||
-                                    value == 'Cancelado',
-                              ))
+                          .map(
+                            (value) => Tag(
+                              value,
+                              warn: value == 'Exigente' || value == 'Cancelado',
+                            ),
+                          )
                           .toList(),
                     ),
                   const SizedBox(height: 10),
@@ -197,10 +197,7 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    place,
-                    style: const TextStyle(color: RumboColors.musgo),
-                  ),
+                  Text(place, style: const TextStyle(color: RumboColors.musgo)),
                   if (metrics.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     Row(
@@ -223,8 +220,10 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: RumboColors.monte2,
-                          child: Icon(Icons.person_outline,
-                              color: Colors.white),
+                          child: Icon(
+                            Icons.person_outline,
+                            color: Colors.white,
+                          ),
                         ),
                         title: Text('Organizador del plan'),
                         subtitle: Text(
@@ -311,7 +310,8 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                                   'Cupo máximo: '
                                   '${real.maxParticipants?.toString() ?? 'Por definir'}',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w700),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
@@ -336,10 +336,14 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
           ),
         ],
       ),
-      bottomSheet: _bottomBar(context, real: real, legacy: legacy, price: price),
-      floatingActionButton: legacy != null &&
-              _joined &&
-              widget.onStartRoute != null
+      bottomSheet: _bottomBar(
+        context,
+        real: real,
+        legacy: legacy,
+        price: price,
+      ),
+      floatingActionButton:
+          legacy != null && _joined && widget.onStartRoute != null
           ? FloatingActionButton.extended(
               onPressed: widget.onStartRoute,
               icon: const Icon(Icons.navigation_outlined),
@@ -350,47 +354,44 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
   }
 
   Widget _infoRow(IconData icon, String label, String value) => ListTile(
-        leading: Icon(icon, color: RumboColors.monte2),
-        title: Text(label, style: const TextStyle(fontSize: 12)),
-        subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-      );
+    leading: Icon(icon, color: RumboColors.monte2),
+    title: Text(label, style: const TextStyle(fontSize: 12)),
+    subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+  );
 
   Widget _legacyParticipants(Plan plan) => Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const AvatarStack(),
-                  Text(
-                    '${plan.van} de ${plan.cupos} cupos',
-                    style: const TextStyle(
-                      color: RumboColors.musgo,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              LinearProgressIndicator(
-                value: plan.cupos > 0
-                    ? (plan.van / plan.cupos).clamp(0.0, 1.0)
-                    : 0.0,
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              const SizedBox(height: 9),
-              const Text(
-                'Inscripciones temporales de la maqueta. '
-                'Se reemplazarán por Enrollments.',
-                style: TextStyle(color: RumboColors.musgo, fontSize: 12.5),
+              const AvatarStack(),
+              Text(
+                '${plan.van} de ${plan.cupos} cupos',
+                style: const TextStyle(color: RumboColors.musgo, fontSize: 12),
               ),
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: plan.cupos > 0
+                ? (plan.van / plan.cupos).clamp(0.0, 1.0)
+                : 0.0,
+            minHeight: 6,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          const SizedBox(height: 9),
+          const Text(
+            'Inscripciones temporales de la maqueta. '
+            'Se reemplazarán por Enrollments.',
+            style: TextStyle(color: RumboColors.musgo, fontSize: 12.5),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _bottomBar(
     BuildContext context, {
@@ -398,7 +399,8 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
     required Plan? legacy,
     required String price,
   }) {
-    final canEditReal = real != null &&
+    final canEditReal =
+        real != null &&
         widget.organizerOwnPlan &&
         (real.status == PlanStatus.draft ||
             real.status == PlanStatus.published);
@@ -443,36 +445,36 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
             Flexible(
               flex: 2,
               child: FilledButton(
-              onPressed: isLegacy
-                  ? _legacyJoinAction
-                  : canEditReal
-                      ? () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => Scaffold(
-                                appBar: AppBar(title: const Text('Editar plan')),
-                                body: PlanEditorPage(initial: real),
-                              ),
-                            ),
-                          )
-                      : null,
-              child: Text(
-                isLegacy
-                    ? widget.organizerOwnPlan
-                        ? 'Gestionar inscritos'
-                        : _joined
+                onPressed: isLegacy
+                    ? _legacyJoinAction
+                    : canEditReal
+                    ? () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(title: const Text('Editar plan')),
+                            body: PlanEditorPage(initial: real),
+                          ),
+                        ),
+                      )
+                    : null,
+                child: Text(
+                  isLegacy
+                      ? widget.organizerOwnPlan
+                            ? 'Gestionar inscritos'
+                            : _joined
                             ? 'Desunirme'
                             : legacy!.van >= legacy!.cupos
-                                ? 'Sin cupos'
-                                : 'Unirme al plan'
-                    : canEditReal
-                        ? 'Editar plan'
-                        : real!.status == PlanStatus.published
-                            ? 'Inscripciones pronto'
-                            : _statusLabel(real.status),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-              ),
+                            ? 'Sin cupos'
+                            : 'Unirme al plan'
+                      : canEditReal
+                      ? 'Editar plan'
+                      : real!.status == PlanStatus.published
+                      ? 'Inscripciones pronto'
+                      : _statusLabel(real.status),
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
@@ -541,16 +543,15 @@ String _formatDistance(double km) {
 String _formatBudget(double? amount) {
   if (amount == null) return 'Por definir';
   if (amount == 0) return 'Gratis';
-  final digits = amount.toStringAsFixed(0).replaceAllMapped(
-        RegExp(r'\B(?=(\d{3})+(?!\d))'),
-        (_) => '.',
-      );
+  final digits = amount
+      .toStringAsFixed(0)
+      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
   return '\$$digits COP';
 }
 
 String _statusLabel(PlanStatus status) => switch (status) {
-      PlanStatus.draft => 'Borrador',
-      PlanStatus.published => 'Publicado',
-      PlanStatus.cancelled => 'Cancelado',
-      PlanStatus.finished => 'Finalizado',
-    };
+  PlanStatus.draft => 'Borrador',
+  PlanStatus.published => 'Publicado',
+  PlanStatus.cancelled => 'Cancelado',
+  PlanStatus.finished => 'Finalizado',
+};

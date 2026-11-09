@@ -59,7 +59,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   void _openPlan(PlanEntity plan) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => PlanDetailScreen.fromEntity(plan: plan)),
+      MaterialPageRoute<void>(
+        builder: (_) => PlanDetailScreen.fromEntity(plan: plan),
+      ),
     );
   }
 
@@ -174,9 +176,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   style: const TextStyle(color: Colors.red),
                 ),
                 TextButton.icon(
-                  onPressed: () => context
-                      .read<PlansBloc>()
-                      .add(const PlansRefreshRequested()),
+                  onPressed: () => context.read<PlansBloc>().add(
+                    const PlansRefreshRequested(),
+                  ),
                   icon: const Icon(Icons.refresh),
                   label: const Text('Reintentar'),
                 ),

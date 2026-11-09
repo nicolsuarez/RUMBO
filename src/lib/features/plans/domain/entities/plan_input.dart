@@ -31,10 +31,27 @@ class PlanInput {
   final PlanDifficulty? difficulty;
   final String? imagePath;
 
+  PlanInput withImagePath(String? path) => PlanInput(
+    title: title,
+    description: description,
+    place: place,
+    startsAt: startsAt,
+    activityTypeId: activityTypeId,
+    mode: mode,
+    minParticipants: minParticipants,
+    maxParticipants: maxParticipants,
+    budgetPerPerson: budgetPerPerson,
+    distanceKm: distanceKm,
+    difficulty: difficulty,
+    imagePath: path,
+  );
+
   /// Evita errores comunes antes de escribir a PostgreSQL.
   /// La BD también protege la integridad mediante CHECK/trigger/RLS.
   void validate({required bool publish}) {
-    if (title.trim().isEmpty || description.trim().isEmpty || place.trim().isEmpty) {
+    if (title.trim().isEmpty ||
+        description.trim().isEmpty ||
+        place.trim().isEmpty) {
       throw ArgumentError('Título, descripción y lugar son obligatorios.');
     }
     if (title.trim().length > 120 || place.trim().length > 150) {
@@ -44,7 +61,8 @@ class PlanInput {
         maxParticipants != null && maxParticipants! <= 0) {
       throw ArgumentError('Los cupos deben ser mayores que cero.');
     }
-    if (minParticipants != null && maxParticipants != null &&
+    if (minParticipants != null &&
+        maxParticipants != null &&
         minParticipants! > maxParticipants!) {
       throw ArgumentError('Los cupos mínimos no pueden superar los máximos.');
     }
@@ -55,9 +73,15 @@ class PlanInput {
       throw ArgumentError('La distancia no puede ser negativa.');
     }
     if (publish) {
-      if (startsAt == null || activityTypeId == null || mode == null ||
-          minParticipants == null || maxParticipants == null || budgetPerPerson == null) {
-        throw ArgumentError('Completa fecha, actividad, modalidad, cupos y presupuesto para publicar.');
+      if (startsAt == null ||
+          activityTypeId == null ||
+          mode == null ||
+          minParticipants == null ||
+          maxParticipants == null ||
+          budgetPerPerson == null) {
+        throw ArgumentError(
+          'Completa fecha, actividad, modalidad, cupos y presupuesto para publicar.',
+        );
       }
       if (!startsAt!.isAfter(DateTime.now())) {
         throw ArgumentError('La fecha de inicio debe estar en el futuro.');

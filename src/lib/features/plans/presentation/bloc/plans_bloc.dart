@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/activity_type.dart';
 import '../../domain/entities/plan_entity.dart';
 import '../../domain/entities/plan_input.dart';
+import '../../domain/entities/plan_image.dart';
 import '../../domain/usecases/plan_usecases.dart';
 
 part 'plans_event.dart';
@@ -81,9 +82,19 @@ class PlansBloc extends Bloc<PlansEvent, PlansState> {
     emit(state.copyWith(saving: true, error: null, message: null));
     try {
       if (event.id == null) {
-        await createPlan(event.input, publish: event.publish);
+        await createPlan(
+          event.input,
+          publish: event.publish,
+          newImage: event.image,
+        );
       } else {
-        await updatePlan(event.id!, event.input, publish: event.publish);
+        await updatePlan(
+          event.id!,
+          event.input,
+          publish: event.publish,
+          newImage: event.image,
+          removeImage: event.removeImage,
+        );
       }
       await _refresh(
         emit,

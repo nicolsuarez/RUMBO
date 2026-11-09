@@ -12,7 +12,9 @@ class SupabasePlanDataSource {
   }
 
   Future<List<Map<String, dynamic>>> publishedPlans() async {
-    final data = await client.from('plan').select()
+    final data = await client
+        .from('plan')
+        .select()
         .eq('estado', 'publicado')
         .gte('fecha_inicio', DateTime.now().toUtc().toIso8601String())
         .order('fecha_inicio', ascending: true);
@@ -20,22 +22,27 @@ class SupabasePlanDataSource {
   }
 
   Future<List<Map<String, dynamic>>> organizerPlans(String id) => client
-      .from('plan').select().eq('id_organizador', id)
+      .from('plan')
+      .select()
+      .eq('id_organizador', id)
       .order('created_at', ascending: false);
 
-  Future<Map<String, dynamic>> planById(String id) => client
-      .from('plan').select().eq('id_plan', id).single();
+  Future<Map<String, dynamic>> planById(String id) =>
+      client.from('plan').select().eq('id_plan', id).single();
 
   Future<List<Map<String, dynamic>>> activities() => client
-      .from('tipo_actividad').select('id_tipo_actividad,nombre')
+      .from('tipo_actividad')
+      .select('id_tipo_actividad,nombre')
       .order('nombre');
 
   Future<Map<String, dynamic>> insert(Map<String, dynamic> values) => client
-      .from('plan').insert({...values, 'id_organizador': currentUserId})
-      .select().single();
+      .from('plan')
+      .insert({...values, 'id_organizador': currentUserId})
+      .select()
+      .single();
 
-  Future<Map<String, dynamic>> update(String id, Map<String, dynamic> values) => client
-      .from('plan').update(values).eq('id_plan', id).select().single();
+  Future<Map<String, dynamic>> update(String id, Map<String, dynamic> values) =>
+      client.from('plan').update(values).eq('id_plan', id).select().single();
 
   Future<void> delete(String id) async {
     await client.from('plan').delete().eq('id_plan', id);

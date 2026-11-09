@@ -14,10 +14,14 @@ final class PlansSaveRequested extends PlansEvent {
     required this.input,
     required this.publish,
     this.id,
+    this.image,
+    this.removeImage = false,
   });
   final PlanInput input;
   final bool publish;
   final String? id;
+  final PlanImage? image;
+  final bool removeImage;
 }
 
 final class PlansCancelRequested extends PlansEvent {

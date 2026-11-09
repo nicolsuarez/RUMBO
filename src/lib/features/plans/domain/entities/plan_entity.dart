@@ -18,6 +18,7 @@ class PlanEntity {
     this.distanceKm,
     this.difficulty,
     this.imagePath,
+    this.imageUrl,
     this.cancellationReason,
     this.cancelledAt,
   });
@@ -39,6 +40,9 @@ class PlanEntity {
   final double? distanceKm;
   final PlanDifficulty? difficulty;
   final String? imagePath;
+
+  /// URL de lectura calculada por la capa data (no se persiste en plan).
+  final String? imageUrl;
   final String? cancellationReason;
   final DateTime? cancelledAt;
 
@@ -47,7 +51,9 @@ class PlanEntity {
 }
 
 enum PlanStatus { draft, published, cancelled, finished }
+
 enum PlanMode { public, private }
+
 enum PlanDifficulty { easy, medium, hard }
 
 /// Diccionarios DB -> dominio; no hacen parte de widgets ni DTOs.

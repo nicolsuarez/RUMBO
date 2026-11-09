@@ -11,7 +11,11 @@ abstract class PlanRepository {
 
   /// create: publish=false -> borrador; true -> publicado.
   Future<PlanEntity> createPlan(PlanInput input, {required bool publish});
-  Future<PlanEntity> updatePlan(String planId, PlanInput input, {required bool publish});
+  Future<PlanEntity> updatePlan(
+    String planId,
+    PlanInput input, {
+    required bool publish,
+  });
   Future<PlanEntity> cancelPlan(String planId);
   Future<PlanEntity> finishPlan(String planId);
   Future<void> deleteDraft(String planId);

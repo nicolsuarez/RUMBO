@@ -8,6 +8,8 @@ import '../features/auth/domain/usecases/auth_usecases.dart';
 import '../features/auth/domain/usecases/session_usecases.dart';
 import '../features/auth/presentation/bloc/auth/auth_bloc.dart';
 import '../shared/theme/app_theme.dart';
+import '../features/plans/presentation/bloc/plans_bloc.dart';
+import '../core/di/injection_container.dart';
 import 'rumbo_shell.dart';
 
 class RumboApp extends StatelessWidget {
@@ -15,18 +17,23 @@ class RumboApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Construcción manual para Sprint 1. Sin contenedor ni framework de DI.
+    // Auth conserva su construcción manual; Plans utiliza get_it.
     final repository = SupabaseAuthRepository(
       SupabaseAuthDataSource(Supabase.instance.client),
     );
 
-    return BlocProvider<AuthBloc>(
-      create: (_) => AuthBloc(
-        hasSession: HasSessionUseCase(repository),
-        observeSession: ObserveSessionUseCase(repository),
-        getCurrentProfile: GetCurrentProfileUseCase(repository),
-        signOut: SignOutUseCase(repository),
-      ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => AuthBloc(
+            hasSession: HasSessionUseCase(repository),
+            observeSession: ObserveSessionUseCase(repository),
+            getCurrentProfile: GetCurrentProfileUseCase(repository),
+            signOut: SignOutUseCase(repository),
+          ),
+        ),
+        BlocProvider<PlansBloc>(create: (_) => locator<PlansBloc>()),
+      ],
       child: MaterialApp(
         title: 'RUMBO',
         debugShowCheckedModeBanner: false,

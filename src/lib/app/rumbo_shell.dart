@@ -10,15 +10,16 @@ import '../features/auth/presentation/bloc/auth/auth_bloc.dart';
 import 'models/root_tab.dart';
 
 import '../features/chat/presentation/screens/chat_screen.dart';
-import '../features/home/presentation/screens/home_screen.dart';
-import '../features/home/presentation/screens/organizer_panel.dart';
+import '../features/home/presentation/screens/plans_home_page.dart';
+import '../features/home/presentation/screens/plans_organizer_home_page.dart';
 import '../features/onboarding/presentation/screens/splash_screen.dart';
 import '../features/plans/presentation/mocks/plan_mock_data.dart';
 import '../features/plans/presentation/models/plan.dart';
-import '../features/plans/presentation/screens/create_plan_screen.dart';
-import '../features/plans/presentation/screens/explore_screen.dart';
 import '../features/plans/presentation/screens/my_plans_screen.dart';
 import '../features/plans/presentation/screens/plan_detail_screen.dart';
+import '../features/plans/presentation/bloc/plans_bloc.dart';
+import '../features/plans/presentation/screens/explore_screen.dart';
+import '../features/plans/presentation/screens/plan_editor_page.dart';
 import '../features/profile/presentation/models/user_role.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/profile/presentation/screens/profile_summary_screen.dart';
@@ -37,7 +38,7 @@ class RumboShell extends StatefulWidget {
 }
 
 class _RumboShellState extends State<RumboShell> {
-  // El estado de sesión se consulta desde AuthBloc, no desde Supabase.
+  // El estado de sesión se consulta desde el AuthBloc
   RumboUser? get _user {
     final state = context.read<AuthBloc>().state;
     return state is AuthAuthenticated ? state.user : null;
@@ -69,6 +70,11 @@ class _RumboShellState extends State<RumboShell> {
     if (state is AuthAuthenticated) {
       if (_lastAuthenticatedUserId == state.user.id) return;
       _lastAuthenticatedUserId = state.user.id;
+      context.read<PlansBloc>().add(
+        PlansLoadRequested(
+          organizerId: state.user.isOrganizer ? state.user.id : null,
+        ),
+      );
       setState(() {
         selectedRole = state.user.isOrganizer
             ? UserRole.organizador
@@ -80,6 +86,7 @@ class _RumboShellState extends State<RumboShell> {
       });
     } else if (state is AuthUnauthenticated) {
       _lastAuthenticatedUserId = null;
+      context.read<PlansBloc>().add(const PlansResetRequested());
       setState(() {
         selectedRole = UserRole.participante;
         _registrationInProgress = false;
@@ -356,44 +363,42 @@ class _RumboShellState extends State<RumboShell> {
           children: [
             // 0 - Inicio
             selectedRole == UserRole.organizador
-                ? OrganizerPanel(
-                    plans: plans,
-                    createdPlanIds: createdPlanIds,
-                    onOpen: openPlan,
+                ? PlansOrganizerHomePage(
+                    onMyPlans: () => selectTab(RootTab.planes),
                     onCreate: () {
                       selectTab(RootTab.crear);
                     },
                   )
-                : HomeScreen(
+                : PlansHomePage(
                     userName: _user!.name,
-                    plans: plans,
-                    onOpen: openPlan,
                     onExplore: () {
                       selectTab(RootTab.explorar);
                     },
                   ),
 
             // 1 - Explorar
-            ExploreScreen(plans: plans, onOpen: openPlan),
+            const ExploreScreen(),
 
             // 2 - Crear
             selectedRole == UserRole.organizador
-                ? CreatePlanScreen(onCreate: addPlan)
+                ? PlanEditorPage(onSaved: () => selectTab(RootTab.planes))
                 : const SizedBox.shrink(),
 
             // 3 - Mis planes
-            MyPlansScreen(
-              plans: plans,
-              joined: joined,
-              createdPlanIds: createdPlanIds,
-              organizerMode: selectedRole == UserRole.organizador,
-              activeRouteId: activeRouteId,
-              onOpen: openPlan,
-              onStartRoute: startRoute,
-              onExplore: () {
-                selectTab(RootTab.explorar);
-              },
-            ),
+            selectedRole == UserRole.organizador
+                ? MyPlansScreen.organizer(
+                    onCreate: () => selectTab(RootTab.crear),
+                  )
+                : MyPlansScreen(
+                    plans: plans,
+                    joined: joined,
+                    createdPlanIds: createdPlanIds,
+                    organizerMode: selectedRole == UserRole.organizador,
+                    activeRouteId: activeRouteId,
+                    onOpen: openPlan,
+                    onStartRoute: startRoute,
+                    onExplore: () => selectTab(RootTab.explorar),
+                  ),
 
             // 4 - Perfil
             ProfileScreen(

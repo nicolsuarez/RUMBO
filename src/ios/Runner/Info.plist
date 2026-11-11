@@ -6,6 +6,10 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RUMBO permite seleccionar una fotografía para tus planes.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>RUMBO permite tomar una fotografía para tus planes.</string>
 	<key>CFBundleDisplayName</key>
 	<string>Rumbo</string>
 	<key>CFBundleExecutable</key>

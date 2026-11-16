@@ -11,6 +11,7 @@ import '../shared/theme/app_theme.dart';
 import '../features/plans/presentation/bloc/plans_bloc.dart';
 import '../core/di/injection_container.dart';
 import 'rumbo_shell.dart';
+import '../features/enrollments/presentation/bloc/enrollments_bloc.dart';
 
 class RumboApp extends StatelessWidget {
   const RumboApp({super.key});
@@ -33,6 +34,7 @@ class RumboApp extends StatelessWidget {
           ),
         ),
         BlocProvider<PlansBloc>(create: (_) => locator<PlansBloc>()),
+        BlocProvider<EnrollmentsBloc>(create: (_) => locator<EnrollmentsBloc>()),
       ],
       child: MaterialApp(
         title: 'RUMBO',

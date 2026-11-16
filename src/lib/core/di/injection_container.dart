@@ -10,6 +10,12 @@ import '../../features/plans/domain/repositories/plan_image_repository.dart';
 import '../../features/plans/domain/usecases/plan_usecases.dart';
 import '../../features/plans/presentation/bloc/plans_bloc.dart';
 
+import '../../features/enrollments/data/datasources/supabase_enrollment_data_source.dart';
+import '../../features/enrollments/data/repositories/supabase_enrollment_repository.dart';
+import '../../features/enrollments/domain/repositories/enrollment_repository.dart';
+import '../../features/enrollments/domain/usecases/enrollment_usecases.dart';
+import '../../features/enrollments/presentation/bloc/enrollments_bloc.dart';
+
 /// DI incremental: solo Plans. Auth continúa con la composición existente.
 final GetIt locator = GetIt.instance;
 
@@ -78,4 +84,48 @@ void registerPlansDependencies(SupabaseClient client) {
       deleteDraft: locator<DeleteDraftUseCase>(),
     ),
   );
+}
+
+/// Registro independiente para Persona 2. Se integra sin acoplar widgets a SQL.
+void registerEnrollmentsDependencies(SupabaseClient client) {
+  if (locator.isRegistered<EnrollmentRepository>()) return;
+  if (!locator.isRegistered<SupabaseClient>()) {
+    locator.registerSingleton<SupabaseClient>(client);
+  }
+  locator.registerLazySingleton<SupabaseEnrollmentDataSource>(
+    () => SupabaseEnrollmentDataSource(locator<SupabaseClient>()),
+  );
+  locator.registerLazySingleton<EnrollmentRepository>(
+    () => SupabaseEnrollmentRepository(locator<SupabaseEnrollmentDataSource>()),
+  );
+  locator.registerLazySingleton(
+    () => EnrollInPlanUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => GetMyEnrollmentsUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => CancelEnrollmentUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => CheckPlanAvailabilityUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => GetMyEnrollmentForPlanUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => GetPendingRequestsUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => ResolveEnrollmentRequestUseCase(locator<EnrollmentRepository>()),
+  );
+  locator.registerFactory(() => EnrollmentsBloc(
+    enrollInPlan: locator<EnrollInPlanUseCase>(),
+    getMyEnrollments: locator<GetMyEnrollmentsUseCase>(),
+    cancelEnrollment: locator<CancelEnrollmentUseCase>(),
+    checkPlanAvailability: locator<CheckPlanAvailabilityUseCase>(),
+    getMyEnrollmentForPlan: locator<GetMyEnrollmentForPlanUseCase>(),
+    getPendingRequests: locator<GetPendingRequestsUseCase>(),
+    resolveEnrollmentRequest: locator<ResolveEnrollmentRequestUseCase>(),
+  ));
 }

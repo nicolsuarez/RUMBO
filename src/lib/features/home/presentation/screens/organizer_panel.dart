@@ -5,6 +5,7 @@ import '../../../../shared/components/kpi_card.dart';
 import '../../../../shared/components/section_title.dart';
 import '../../../../shared/theme/rumbo_colors.dart';
 import '../../../plans/domain/entities/plan_entity.dart';
+import '../../../enrollments/presentation/screens/organizer_requests_screen.dart';
 import '../../../plans/presentation/bloc/plans_bloc.dart';
 import '../../../plans/presentation/components/plan_card.dart';
 import '../../../plans/presentation/screens/plan_detail_screen.dart';
@@ -113,25 +114,28 @@ class OrganizerPanel extends StatelessWidget {
               ),
             ],
             const SectionTitle('Solicitudes por aprobar'),
-            // Esta sección depende de Enrollments; no se inventan solicitudes.
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    Icon(Icons.mark_email_unread_outlined,
-                        color: RumboColors.monte2),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Aquí aparecerán las solicitudes cuando se '
-                        'integre la funcionalidad de inscripciones.',
-                      ),
-                    ),
-                  ],
+            if (published.where((plan) => plan.mode == PlanMode.private).isEmpty)
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.mark_email_unread_outlined),
+                  title: Text('Sin planes privados publicados'),
+                  subtitle: Text('Las solicitudes se reciben en planes privados.'),
                 ),
               ),
-            ),
+            for (final plan in published.where((p) => p.mode == PlanMode.private))
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.people_outline),
+                  title: Text(plan.title),
+                  subtitle: const Text('Consultar solicitudes pendientes'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => OrganizerRequestsScreen(plan: plan),
+                    ),
+                  ),
+                ),
+              ),
             const SectionTitle('Tus planes publicados'),
             if (published.isEmpty && !state.loading && state.error == null)
               const Card(

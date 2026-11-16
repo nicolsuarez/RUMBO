@@ -124,7 +124,7 @@ Las pantallas y algunas interacciones utilizan datos simulados, sin persistencia
 
 El seguimiento de rutas, la detección de desviaciones y las alertas SOS son demostraciones visuales. **No utilizan GPS real ni envían alertas a contactos o servicios de emergencia.**
 
-La autenticación, los permisos, la gestión definitiva de inscripciones, la persistencia y los servicios de seguridad se implementarán en etapas posteriores.
+Las funciones de autenticación y gestión de planes cuentan con integración Supabase en `develop`. La rama de Persona 2 incorpora el módulo de inscripciones; requiere desplegar su migración y validar los flujos con cuentas reales. Los servicios de GPS y seguridad siguen fuera del Sprint 2.
 
 
 ## Para ejecutar el proyecto se hace el flutter pub get y el flutter run desde la carpeta src/
@@ -149,3 +149,22 @@ Una vez finalizada y validada la funcionalidad, se integrará a `develop` median
 ### Documentación del flujo de cada feature
 
 Cada vez que se termine de implementar una nueva feature, en lo posible que se actualice la Documentacion/, que se incluya un diagrama muy sencillo del flujo de funcionamiento. Esto para facilitar que los demás comprendan como interactúan los componentes, como se procesa la info y donde estan las responsabilidades etc.
+
+
+## Sprint 2 — Enrollments (Persona 2)
+
+La rama `feature/enrollments-persona2` incorpora los casos US-05 a US-08:
+**Inscribirse en un plan, consultar Mis inscripciones, cancelar una inscripción y verificar cupos y duplicados**. Usa Clean Architecture, BLoC, `get_it`, Supabase PostgreSQL, RLS y funciones RPC transaccionales. Incluye el flujo adicional de aprobación para planes privados.
+
+### Instrucciones para navegar por los flujos
+
+1. Desde `src/`, ejecutar `flutter pub get`, `flutter analyze`, `flutter test` y `flutter run`.
+2. Configurar Supabase con `src/lib/core/config/supabase_config.dart` según las credenciales provistas por el equipo (sin subir contraseñas).
+3. Revisar y aplicar en orden las migraciones de `src/supabase/migrations/` con acuerdo previo. Se necesita Auth + Plans + la migración `20261115000100_enrollments.sql`.
+4. Con una cuenta **organizador**, publicar un plan público futuro con cupos y, opcionalmente, uno privado.
+5. Con una cuenta **participante**, navegar a **Explorar → Detalle → Unirme al plan → Mis planes → Cancelar inscripción**.
+6. Para planes privados, el participante solicita un cupo y el organizador lo aprueba o rechaza desde **Tu panel → Solicitudes por aprobar**.
+
+Detalles de contratos, SQL, roles, pruebas y errores: `src/lib/features/enrollments/README_ENROLLMENTS.md`. Checklist para el commit, tag, video de máximo 5 minutos y evidencia: `Documentacion/ENTREGA_PERSONA2_SPRINT2.md`.
+
+**Importante:** los tests unitarios con repositorio falso no sustituyen las pruebas de concurrencia, RLS y persistencia sobre Supabase real.

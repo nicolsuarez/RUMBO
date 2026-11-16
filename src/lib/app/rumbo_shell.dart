@@ -8,6 +8,8 @@ import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/auth/presentation/bloc/auth/auth_bloc.dart';
 
 import 'models/root_tab.dart';
+import '../features/enrollments/presentation/bloc/enrollments_bloc.dart';
+import '../features/enrollments/presentation/screens/my_enrollments_screen.dart';
 
 import '../features/chat/presentation/screens/chat_screen.dart';
 import '../features/home/presentation/screens/plans_home_page.dart';
@@ -70,6 +72,7 @@ class _RumboShellState extends State<RumboShell> {
     if (state is AuthAuthenticated) {
       if (_lastAuthenticatedUserId == state.user.id) return;
       _lastAuthenticatedUserId = state.user.id;
+      context.read<EnrollmentsBloc>().add(const EnrollmentsLoadRequested());
       context.read<PlansBloc>().add(
         PlansLoadRequested(
           organizerId: state.user.isOrganizer ? state.user.id : null,
@@ -87,6 +90,7 @@ class _RumboShellState extends State<RumboShell> {
     } else if (state is AuthUnauthenticated) {
       _lastAuthenticatedUserId = null;
       context.read<PlansBloc>().add(const PlansResetRequested());
+      context.read<EnrollmentsBloc>().add(const EnrollmentsResetRequested());
       setState(() {
         selectedRole = UserRole.participante;
         _registrationInProgress = false;
@@ -138,6 +142,9 @@ class _RumboShellState extends State<RumboShell> {
     setState(() {
       tab = next;
     });
+    if (next == RootTab.planes) {
+      context.read<EnrollmentsBloc>().add(const EnrollmentsLoadRequested());
+    }
   }
 
   void toggleViewMode() {
@@ -270,9 +277,21 @@ class _RumboShellState extends State<RumboShell> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AuthBloc, AuthState>(
-      listener: _onAuthStateChanged,
-      builder: (context, authState) => _buildForAuthState(authState),
+    return BlocListener<EnrollmentsBloc, EnrollmentsState>(
+      listenWhen: (previous, current) =>
+          (current.message != null && previous.message != current.message) ||
+          (current.error != null && previous.error != current.error),
+      listener: (context, state) {
+        final message = state.error ?? state.message;
+        if (message == null) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      },
+      child: BlocConsumer<AuthBloc, AuthState>(
+        listener: _onAuthStateChanged,
+        builder: (context, authState) => _buildForAuthState(authState),
+      ),
     );
   }
 
@@ -389,14 +408,7 @@ class _RumboShellState extends State<RumboShell> {
                 ? MyPlansScreen.organizer(
                     onCreate: () => selectTab(RootTab.crear),
                   )
-                : MyPlansScreen(
-                    plans: plans,
-                    joined: joined,
-                    createdPlanIds: createdPlanIds,
-                    organizerMode: selectedRole == UserRole.organizador,
-                    activeRouteId: activeRouteId,
-                    onOpen: openPlan,
-                    onStartRoute: startRoute,
+                : MyEnrollmentsScreen(
                     onExplore: () => selectTab(RootTab.explorar),
                   ),
 

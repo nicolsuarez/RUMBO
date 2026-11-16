@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../auth/presentation/bloc/auth/auth_bloc.dart';
+import '../../../enrollments/domain/entities/enrollment_entity.dart';
+import '../../../enrollments/presentation/bloc/enrollments_bloc.dart';
+
 import '../../../../shared/components/avatar_stack.dart';
 import '../../../../shared/components/kpi_card.dart';
 import '../../../../shared/components/section_title.dart';
@@ -17,9 +21,9 @@ import 'plan_editor_page.dart';
 /// Detalle visual único de RUMBO.
 ///
 /// [PlanDetailScreen.fromEntity] es la entrada definitiva para planes reales.
-/// El constructor original sigue disponible temporalmente porque RumboShell,
-/// Chat y Routes aún usan Plan/inscripciones simuladas. Se retirará al integrar
-/// Enrollments y migrar el flujo de participantes de Mis planes.
+/// El constructor legado sigue disponible solo por compatibilidad con
+/// simulaciones de Chat y Routes (Sprint 3). La navegación real del
+/// participante usa el constructor fromEntity y EnrollmentsBloc.
 class PlanDetailScreen extends StatefulWidget {
   const PlanDetailScreen({
     super.key,
@@ -64,6 +68,11 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
   void initState() {
     super.initState();
     _joined = widget.joined;
+    if (widget._realPlan != null) {
+      context.read<EnrollmentsBloc>().add(
+        EnrollmentsPlanRequested(widget._realPlan!.id),
+      );
+    }
   }
 
   @override
@@ -100,11 +109,14 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
             break;
           }
         }
-        return _detail(
-          context,
-          real: current,
-          legacy: null,
-          activityName: activityName,
+        return BlocBuilder<EnrollmentsBloc, EnrollmentsState>(
+          builder: (context, enrollments) => _detail(
+            context,
+            real: current,
+            legacy: null,
+            activityName: activityName,
+            enrollments: enrollments,
+          ),
         );
       },
     );
@@ -115,6 +127,7 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
     required PlanEntity? real,
     required Plan? legacy,
     String? activityName,
+    EnrollmentsState? enrollments,
   }) {
     final title = real?.title ?? legacy!.titulo;
     final place = real?.place ?? legacy!.lugar;
@@ -307,18 +320,26 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Cupo máximo: '
-                                  '${real.maxParticipants?.toString() ?? 'Por definir'}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                  'Cupos ocupados: '
+                                  '${enrollments?.availabilityByPlan[real.id]?.occupied.toString() ?? '...'} '
+                                  '/ ${real.maxParticipants?.toString() ?? 'Por definir'}',
+                                  style: const TextStyle(fontWeight: FontWeight.w700),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  'La lista de participantes y los cupos ocupados '
-                                  'se mostrarán cuando se integre Enrollments.',
-                                  style: TextStyle(color: RumboColors.musgo),
+                                Text(
+                                  enrollments?.availabilityByPlan[real.id] == null
+                                      ? 'Consultando disponibilidad...'
+                                      : '${enrollments!.availabilityByPlan[real.id]!.remaining} cupos disponibles',
+                                  style: const TextStyle(color: RumboColors.musgo),
                                 ),
+                                if (enrollments?.ownByPlan[real.id]?.isActive == true) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    enrollments!.ownByPlan[real.id]!.status == EnrollmentStatus.pending
+                                        ? 'Tu solicitud está pendiente de aprobación.'
+                                        : 'Tu inscripción está confirmada.',
+                                  ),
+                                ],
                                 if (real.minParticipants != null) ...[
                                   const SizedBox(height: 8),
                                   Text(
@@ -341,6 +362,7 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
         real: real,
         legacy: legacy,
         price: price,
+        enrollments: enrollments,
       ),
       floatingActionButton:
           legacy != null && _joined && widget.onStartRoute != null
@@ -398,10 +420,19 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
     required PlanEntity? real,
     required Plan? legacy,
     required String price,
+    EnrollmentsState? enrollments,
   }) {
+    final enrollment = real == null ? null : enrollments?.ownByPlan[real.id];
+    final availability = real == null ? null : enrollments?.availabilityByPlan[real.id];
+    final authState = context.read<AuthBloc>().state;
+    final ownsReal = real != null &&
+        (widget.organizerOwnPlan ||
+            (authState is AuthAuthenticated &&
+                authState.user.id == real.organizerId));
+    final isBusy = real != null && enrollments?.busyPlanId == real.id;
     final canEditReal =
         real != null &&
-        widget.organizerOwnPlan &&
+        ownsReal &&
         (real.status == PlanStatus.draft ||
             real.status == PlanStatus.published);
     final isLegacy = legacy != null;
@@ -456,7 +487,16 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                           ),
                         ),
                       )
-                    : null,
+                    : real == null || real.status != PlanStatus.published ||
+                      ownsReal || isBusy || availability == null
+                    ? null
+                    : enrollment?.isActive == true
+                    ? () => _cancelRealEnrollment(real)
+                    : availability.isFull
+                    ? null
+                    : () => context.read<EnrollmentsBloc>().add(
+                        EnrollmentsJoinRequested(real.id),
+                      ),
                 child: Text(
                   isLegacy
                       ? widget.organizerOwnPlan
@@ -468,9 +508,23 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
                             : 'Unirme al plan'
                       : canEditReal
                       ? 'Editar plan'
-                      : real!.status == PlanStatus.published
-                      ? 'Inscripciones pronto'
-                      : _statusLabel(real.status),
+                      : isBusy
+                      ? 'Procesando...'
+                      : enrollment?.status == EnrollmentStatus.pending
+                      ? 'Retirar solicitud'
+                      : enrollment?.status == EnrollmentStatus.confirmed
+                      ? 'Cancelar inscripción'
+                      : ownsReal
+                      ? 'Tu plan'
+                      : real!.status != PlanStatus.published
+                      ? _statusLabel(real.status)
+                      : availability == null
+                      ? 'Consultando cupos...'
+                      : availability.isFull
+                      ? 'Sin cupos'
+                      : real.mode == PlanMode.private
+                      ? 'Solicitar cupo'
+                      : 'Unirme al plan',
                   maxLines: 2,
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
@@ -481,6 +535,28 @@ class _PlanDetailScreenState extends State<PlanDetailScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _cancelRealEnrollment(PlanEntity plan) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancelar inscripción'),
+        content: Text('¿Quieres cancelar tu inscripción en ${plan.title}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Cancelar inscripción'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    context.read<EnrollmentsBloc>().add(EnrollmentsCancelRequested(plan.id));
   }
 
   Future<void> _legacyJoinAction() async {

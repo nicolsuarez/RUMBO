@@ -27,7 +27,10 @@ class OrganizerPanel extends StatelessWidget {
       onOpen!(plan);
     } else {
       Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => PlanDetailScreen.fromEntity(plan: plan, organizerOwnPlan: true)),
+        MaterialPageRoute<void>(
+          builder: (_) =>
+              PlanDetailScreen.fromEntity(plan: plan, organizerOwnPlan: true),
+        ),
       );
     }
   }
@@ -74,7 +77,10 @@ class OrganizerPanel extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: KpiCard(value: '${drafts.length}', label: 'borradores'),
+                  child: KpiCard(
+                    value: '${drafts.length}',
+                    label: 'borradores',
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -102,8 +108,8 @@ class OrganizerPanel extends StatelessWidget {
                       ),
                       TextButton.icon(
                         onPressed: () => context.read<PlansBloc>().add(
-                              const PlansRefreshRequested(),
-                            ),
+                          const PlansRefreshRequested(),
+                        ),
                         icon: const Icon(Icons.refresh),
                         label: const Text('Reintentar'),
                       ),
@@ -119,8 +125,10 @@ class OrganizerPanel extends StatelessWidget {
                 padding: EdgeInsets.all(18),
                 child: Row(
                   children: [
-                    Icon(Icons.mark_email_unread_outlined,
-                        color: RumboColors.monte2),
+                    Icon(
+                      Icons.mark_email_unread_outlined,
+                      color: RumboColors.monte2,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -140,16 +148,20 @@ class OrganizerPanel extends StatelessWidget {
                   child: Text('Todavía no has publicado ningún plan.'),
                 ),
               ),
-            ...published.take(5).map(
-              (plan) => PlanCard.fromEntity(
-                plan: plan,
-                activityName: activityNames[plan.activityTypeId],
-                onTap: () => _openPlan(context, plan),
-              ),
-            ),
+            ...published
+                .take(5)
+                .map(
+                  (plan) => PlanCard.fromEntity(
+                    plan: plan,
+                    activityName: activityNames[plan.activityTypeId],
+                    onTap: () => _openPlan(context, plan),
+                  ),
+                ),
             if (drafts.isNotEmpty) ...[
               const SectionTitle('Borradores'),
-              ...drafts.take(3).map(
+              ...drafts
+                  .take(3)
+                  .map(
                     (plan) => PlanCard.fromEntity(
                       plan: plan,
                       activityName: activityNames[plan.activityTypeId],

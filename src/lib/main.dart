@@ -15,6 +15,7 @@ Future<void> main() async {
 
   registerPlansDependencies(Supabase.instance.client);
   registerEnrollmentsDependencies(Supabase.instance.client);
+  registerAuthDependencies(Supabase.instance.client);
 
   runApp(const RumboApp());
 }

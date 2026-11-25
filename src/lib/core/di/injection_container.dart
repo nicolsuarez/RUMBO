@@ -1,6 +1,16 @@
 import 'package:get_it/get_it.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/data/datasources/supabase_auth_data_source.dart';
+import '../../features/auth/data/repositories/supabase_auth_repository.dart';
+import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/domain/usecases/auth_usecases.dart';
+import '../../features/auth/domain/usecases/check_username_availability_usecase.dart';
+import '../../features/auth/domain/usecases/session_usecases.dart';
+import '../../features/auth/presentation/bloc/auth/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/login/login_bloc.dart';
+import '../../features/auth/presentation/bloc/register/register_bloc.dart';
+
 import '../../features/plans/data/datasources/supabase_plan_data_source.dart';
 import '../../features/plans/data/datasources/supabase_plan_image_data_source.dart';
 import '../../features/plans/data/repositories/supabase_plan_repository.dart';
@@ -16,8 +26,53 @@ import '../../features/enrollments/domain/repositories/enrollment_repository.dar
 import '../../features/enrollments/domain/usecases/enrollment_usecases.dart';
 import '../../features/enrollments/presentation/bloc/enrollments_bloc.dart';
 
-/// DI incremental: solo Plans. Auth continúa con la composición existente.
+/// Contenedor compartido por Auth, Plans y Enrollments.
 final GetIt locator = GetIt.instance;
+
+void registerAuthDependencies(SupabaseClient client) {
+  if (locator.isRegistered<AuthRepository>()) return;
+  if (!locator.isRegistered<SupabaseClient>()) {
+    locator.registerSingleton<SupabaseClient>(client);
+  }
+  locator.registerLazySingleton(
+    () => SupabaseAuthDataSource(locator<SupabaseClient>()),
+  );
+  locator.registerLazySingleton<AuthRepository>(
+    () => SupabaseAuthRepository(locator<SupabaseAuthDataSource>()),
+  );
+  locator.registerLazySingleton(
+    () => HasSessionUseCase(locator<AuthRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => ObserveSessionUseCase(locator<AuthRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => GetCurrentProfileUseCase(locator<AuthRepository>()),
+  );
+  locator.registerLazySingleton(
+    () => SignOutUseCase(locator<AuthRepository>()),
+  );
+  locator.registerLazySingleton(() => SignInUseCase(locator<AuthRepository>()));
+  locator.registerLazySingleton(() => SignUpUseCase(locator<AuthRepository>()));
+  locator.registerLazySingleton(
+    () => CheckUsernameAvailabilityUseCase(locator<AuthRepository>()),
+  );
+  locator.registerFactory(
+    () => AuthBloc(
+      hasSession: locator<HasSessionUseCase>(),
+      observeSession: locator<ObserveSessionUseCase>(),
+      getCurrentProfile: locator<GetCurrentProfileUseCase>(),
+      signOut: locator<SignOutUseCase>(),
+    ),
+  );
+  locator.registerFactory(() => LoginBloc(signIn: locator<SignInUseCase>()));
+  locator.registerFactory(
+    () => RegisterBloc(
+      signUp: locator<SignUpUseCase>(),
+      checkUsername: locator<CheckUsernameAvailabilityUseCase>(),
+    ),
+  );
+}
 
 void registerPlansDependencies(SupabaseClient client) {
   if (locator.isRegistered<PlanRepository>()) return;
@@ -119,13 +174,15 @@ void registerEnrollmentsDependencies(SupabaseClient client) {
   locator.registerLazySingleton(
     () => ResolveEnrollmentRequestUseCase(locator<EnrollmentRepository>()),
   );
-  locator.registerFactory(() => EnrollmentsBloc(
-    enrollInPlan: locator<EnrollInPlanUseCase>(),
-    getMyEnrollments: locator<GetMyEnrollmentsUseCase>(),
-    cancelEnrollment: locator<CancelEnrollmentUseCase>(),
-    checkPlanAvailability: locator<CheckPlanAvailabilityUseCase>(),
-    getMyEnrollmentForPlan: locator<GetMyEnrollmentForPlanUseCase>(),
-    getPendingRequests: locator<GetPendingRequestsUseCase>(),
-    resolveEnrollmentRequest: locator<ResolveEnrollmentRequestUseCase>(),
-  ));
+  locator.registerFactory(
+    () => EnrollmentsBloc(
+      enrollInPlan: locator<EnrollInPlanUseCase>(),
+      getMyEnrollments: locator<GetMyEnrollmentsUseCase>(),
+      cancelEnrollment: locator<CancelEnrollmentUseCase>(),
+      checkPlanAvailability: locator<CheckPlanAvailabilityUseCase>(),
+      getMyEnrollmentForPlan: locator<GetMyEnrollmentForPlanUseCase>(),
+      getPendingRequests: locator<GetPendingRequestsUseCase>(),
+      resolveEnrollmentRequest: locator<ResolveEnrollmentRequestUseCase>(),
+    ),
+  );
 }

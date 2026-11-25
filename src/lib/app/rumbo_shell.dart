@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../features/auth/domain/entities/rumbo_user.dart';
-import '../features/auth/domain/usecases/auth_usecases.dart';
+import '../core/di/injection_container.dart';
 import '../features/auth/presentation/bloc/login/login_bloc.dart';
 import '../features/auth/presentation/bloc/register/register_bloc.dart';
-import '../features/auth/domain/repositories/auth_repository.dart';
 import '../features/auth/presentation/bloc/auth/auth_bloc.dart';
 
 import 'models/root_tab.dart';
@@ -28,12 +27,9 @@ import '../features/profile/presentation/screens/profile_summary_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
 import '../features/routes/presentation/screens/route_simulation_screen.dart';
-import '../features/auth/domain/usecases/check_username_availability_usecase.dart';
 
 class RumboShell extends StatefulWidget {
-  const RumboShell({super.key, required this.authRepository});
-
-  final AuthRepository authRepository;
+  const RumboShell({super.key});
 
   @override
   State<RumboShell> createState() => _RumboShellState();
@@ -284,9 +280,9 @@ class _RumboShellState extends State<RumboShell> {
       listener: (context, state) {
         final message = state.error ?? state.message;
         if (message == null) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       },
       child: BlocConsumer<AuthBloc, AuthState>(
         listener: _onAuthStateChanged,
@@ -326,7 +322,7 @@ class _RumboShellState extends State<RumboShell> {
     }
     if (!isAuthenticated && entryPage == _EntryPage.login) {
       return BlocProvider<LoginBloc>(
-        create: (_) => LoginBloc(signIn: SignInUseCase(widget.authRepository)),
+        create: (_) => locator<LoginBloc>(),
         child: LoginScreen(
           onRegister: () => setState(() => entryPage = _EntryPage.register),
           onBack: () => setState(() => entryPage = _EntryPage.welcome),
@@ -335,12 +331,7 @@ class _RumboShellState extends State<RumboShell> {
     }
     if (!isAuthenticated && entryPage == _EntryPage.register) {
       return BlocProvider<RegisterBloc>(
-        create: (_) => RegisterBloc(
-          signUp: SignUpUseCase(widget.authRepository),
-          checkUsername: CheckUsernameAvailabilityUseCase(
-            widget.authRepository,
-          ),
-        ),
+        create: (_) => locator<RegisterBloc>(),
         child: RegisterScreen(
           onLogin: () => setState(() {
             _registrationInProgress = false;

@@ -1,4 +1,3 @@
-
 import '../repositories/emergency_contact_repository.dart';
 
 class UpdateEmergencyContact {

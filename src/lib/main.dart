@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,9 +14,15 @@ Future<void> main() async {
     publishableKey: SupabaseConfig.publishableKey,
   );
 
-  registerPlansDependencies(Supabase.instance.client);
-  registerEnrollmentsDependencies(Supabase.instance.client);
-  registerAuthDependencies(Supabase.instance.client);
+  final supabase = Supabase.instance.client;
+
+  // Registro de dependencias de los módulos.
+  registerPlansDependencies(supabase);
+  registerEnrollmentsDependencies(supabase);
+  registerAuthDependencies(supabase);
+
+  
+  registerSafetyDependencies(supabase);
 
   runApp(const RumboApp());
 }

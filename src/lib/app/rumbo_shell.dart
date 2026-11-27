@@ -26,7 +26,6 @@ import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/profile/presentation/screens/profile_summary_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/register_screen.dart';
-import '../features/routes/presentation/screens/route_simulation_screen.dart';
 
 class RumboShell extends StatefulWidget {
   const RumboShell({super.key});
@@ -54,8 +53,6 @@ class _RumboShellState extends State<RumboShell> {
 
   final Set<String> joined = <String>{};
   final Set<String> createdPlanIds = <String>{};
-
-  String? activeRouteId;
 
   @override
   void initState() {
@@ -182,10 +179,6 @@ class _RumboShellState extends State<RumboShell> {
         if (plan.van > 0) {
           plan.van--;
         }
-
-        if (activeRouteId == plan.id) {
-          activeRouteId = null;
-        }
       });
 
       return true;
@@ -237,9 +230,6 @@ class _RumboShellState extends State<RumboShell> {
           joined: joined.contains(plan.id),
           onJoinToggle: () => toggleJoin(plan),
           onOpenChat: () => openChat(plan),
-          onStartRoute: joined.contains(plan.id)
-              ? () => startRoute(plan)
-              : null,
         ),
       ),
     );
@@ -249,26 +239,6 @@ class _RumboShellState extends State<RumboShell> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => ChatScreen(plan: plan)));
-  }
-
-  // Seguimiento simulado de recorridos.
-  void startRoute(Plan plan) {
-    setState(() {
-      activeRouteId = plan.id;
-    });
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RouteSimulationScreen(
-          plan: plan,
-          onFinish: () {
-            setState(() {
-              activeRouteId = null;
-            });
-          },
-        ),
-      ),
-    );
   }
 
   @override

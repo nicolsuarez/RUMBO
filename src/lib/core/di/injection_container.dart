@@ -25,6 +25,12 @@ import '../../features/enrollments/data/repositories/supabase_enrollment_reposit
 import '../../features/enrollments/domain/repositories/enrollment_repository.dart';
 import '../../features/enrollments/domain/usecases/enrollment_usecases.dart';
 import '../../features/enrollments/presentation/bloc/enrollments_bloc.dart';
+import '../../features/routes/data/datasources/supabase_route_data_source.dart';
+import '../../features/routes/data/repositories/supabase_route_repository.dart';
+import '../../features/routes/domain/repositories/route_repository.dart';
+import '../../features/routes/domain/usecases/route_usecases.dart';
+import '../../features/routes/presentation/bloc/routes_bloc.dart';
+
 
 /// Contenedor compartido por Auth, Plans y Enrollments.
 final GetIt locator = GetIt.instance;
@@ -183,6 +189,63 @@ void registerEnrollmentsDependencies(SupabaseClient client) {
       getMyEnrollmentForPlan: locator<GetMyEnrollmentForPlanUseCase>(),
       getPendingRequests: locator<GetPendingRequestsUseCase>(),
       resolveEnrollmentRequest: locator<ResolveEnrollmentRequestUseCase>(),
+    ),
+  );
+}
+
+void registerRoutesDependencies(SupabaseClient client) {
+  if (locator.isRegistered<RouteRepository>()) return;
+
+  if (!locator.isRegistered<SupabaseClient>()) {
+    locator.registerSingleton<SupabaseClient>(client);
+  }
+
+  locator.registerLazySingleton(
+    () => SupabaseRouteDataSource(locator<SupabaseClient>()),
+  );
+
+  locator.registerLazySingleton<RouteRepository>(
+    () => SupabaseRouteRepository(
+      locator<SupabaseRouteDataSource>(),
+    ),
+  );
+
+  locator.registerLazySingleton(
+    () => GetMyRouteForPlanUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => GetMyActiveRouteUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => StartRouteUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => UpdateRouteProgressUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => PauseRouteUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => ResumeRouteUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerLazySingleton(
+    () => FinishRouteUseCase(locator<RouteRepository>()),
+  );
+
+  locator.registerFactory(
+    () => RoutesBloc(
+      getMyRouteForPlan: locator<GetMyRouteForPlanUseCase>(),
+      startRoute: locator<StartRouteUseCase>(),
+      updateRouteProgress: locator<UpdateRouteProgressUseCase>(),
+      pauseRoute: locator<PauseRouteUseCase>(),
+      resumeRoute: locator<ResumeRouteUseCase>(),
+      finishRoute: locator<FinishRouteUseCase>(),
     ),
   );
 }

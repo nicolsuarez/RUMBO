@@ -1,3 +1,5 @@
+import '../../../plans/domain/entities/plan_entity.dart';
+
 /// Contrato de Inscripción usado por US-05, US-06, US-07 y US-08.
 /// Independiente de Supabase y de las pantallas Flutter.
 enum EnrollmentStatus { pending, confirmed, cancelled, rejected }
@@ -20,6 +22,9 @@ class EnrollmentEntity {
     this.planTitle,
     this.planPlace,
     this.planStartsAt,
+    this.planStatus,
+    this.planDistanceKm,
+    this.existingRouteId,
   });
 
   final String id;
@@ -30,6 +35,9 @@ class EnrollmentEntity {
   final String? planTitle;
   final String? planPlace;
   final DateTime? planStartsAt;
+  final PlanStatus? planStatus;
+  final double? planDistanceKm;
+  final String? existingRouteId;
 
   bool get isActive =>
       status == EnrollmentStatus.pending || status == EnrollmentStatus.confirmed;

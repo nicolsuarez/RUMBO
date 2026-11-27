@@ -13,11 +13,15 @@ class SupabaseEnrollmentDataSource {
 
   static const selectWithPlan =
       'id_inscripcion,id_usuario,id_plan,estado,fecha_inscripcion,'
-      'plan:plan!inscripcion_id_plan_fkey(titulo,lugar,fecha_inicio)';
+      'plan:plan!inscripcion_id_plan_fkey(titulo,lugar,fecha_inicio,estado,distancia_km)';
+
+  // RLS de recorrido devuelve únicamente los recorridos propios.
+  static const selectWithRoute =
+      '$selectWithPlan,recorrido:recorrido!recorrido_inscripcion_coherente(id_recorrido)';
 
   Future<List<Map<String, dynamic>>> myEnrollments() async => await client
       .from('inscripcion')
-      .select(selectWithPlan)
+      .select(selectWithRoute)
       .eq('id_usuario', currentUserId)
       .order('fecha_inscripcion', ascending: false);
 

@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../plans/domain/entities/plan_entity.dart';
 import '../../../plans/presentation/bloc/plans_bloc.dart';
 import '../../../plans/presentation/screens/plan_detail_screen.dart';
+import '../../../routes/domain/entities/route_simulation_rate.dart';
+import '../../../routes/presentation/screens/route_simulation_screen.dart';
 import '../../domain/entities/enrollment_entity.dart';
 import '../bloc/enrollments_bloc.dart';
 
@@ -54,6 +56,40 @@ class MyEnrollmentsScreen extends StatelessWidget {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PlanDetailScreen.fromEntity(plan: found!),
     ));
+  }
+
+  bool _canStartRoute(EnrollmentEntity item) =>
+      item.status == EnrollmentStatus.confirmed &&
+      item.planStatus == PlanStatus.published &&
+      RouteSimulationRate.hasDistance(item.planDistanceKm);
+
+  Widget _routeAccess(BuildContext context, EnrollmentEntity item) {
+    final canStart = _canStartRoute(item);
+    if (!canStart && item.existingRouteId == null) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: OutlinedButton.icon(
+        icon: const Icon(Icons.navigation_outlined),
+        label: const Text('Consultar recorrido'),
+        onPressed: () async {
+          await Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => RouteSimulationScreen(
+              planId: item.planId,
+              userId: item.userId,
+              title: item.planTitle ?? 'Recorrido',
+              place: item.planPlace ?? '',
+              canStart: canStart,
+              totalDistanceKm: item.planDistanceKm,
+            ),
+          ));
+          if (context.mounted) {
+            context.read<EnrollmentsBloc>().add(const EnrollmentsLoadRequested());
+          }
+        },
+      ),
+    );
   }
 
   @override
@@ -111,6 +147,7 @@ class MyEnrollmentsScreen extends StatelessWidget {
                   trailing: Chip(label: Text(_label(item.status))),
                   onTap: () => _open(context, item),
                 ),
+                _routeAccess(context, item),
                 if (item.isActive)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),

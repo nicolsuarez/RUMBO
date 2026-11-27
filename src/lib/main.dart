@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -20,8 +19,7 @@ Future<void> main() async {
   registerPlansDependencies(supabase);
   registerEnrollmentsDependencies(supabase);
   registerAuthDependencies(supabase);
-
-  
+  registerRoutesDependencies(supabase);
   registerSafetyDependencies(supabase);
 
   runApp(const RumboApp());
